@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claim Trend Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1c2b2a;
+      --muted: #697775;
+      --line: #dce5e1;
+      --paper: #f4f7f4;
+      --white: #fff;
+      --green: #167b68;
+      --green-dark: #105f53;
+      --mint: #e3f2ec;
+      --coral: #cb684e;
+      --shadow: 0 18px 50px rgb(28 43 42 / 7%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background-color: var(--paper);
+      background-image: radial-gradient(#dce6e0 0.7px, transparent 0.7px);
+      background-size: 18px 18px;
+      color: var(--ink);
+      font-family: "DM Sans", sans-serif;
+      font-size: 14px;
+    }
+    button, input, select { font: inherit; }
+    .shell { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 56px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 44px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 0; }
+    .brand-mark { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: var(--green); color: white; }
+    .brand-mark svg { width: 20px; height: 20px; }
+    .local-note { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #61a77f; }
+    .intro { margin-bottom: 28px; animation: rise-in .45s ease both; }
+    .eyebrow { margin: 0 0 10px; color: var(--green); font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 10px; font-family: "Newsreader", Georgia, serif; font-size: clamp(34px, 5vw, 48px); font-weight: 500; letter-spacing: 0; line-height: 1.06; }
+    .intro-copy { max-width: 610px; margin: 0; color: var(--muted); line-height: 1.65; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+    .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--white); box-shadow: var(--shadow); }
+    .setup { display: grid; grid-template-columns: minmax(230px, .85fr) minmax(0, 1.8fr); column-gap: 20px; padding: 20px; animation: rise-in .5s .04s ease both; }
+    .section-heading { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+    h2 { margin-bottom: 0; font-size: 15px; font-weight: 700; }
+    .step { color: var(--muted); font-size: 11px; }
+    .dropzone { grid-column: 1; display: grid; min-height: 150px; padding: 16px; place-items: center; border: 1px dashed #a9beb5; border-radius: 7px; background: #f8fbf9; text-align: center; transition: border-color .2s ease, background .2s ease; }
+    .dropzone.dragover { border-color: var(--green); background: var(--mint); }
+    .upload-icon { display: grid; width: 38px; height: 38px; margin: 0 auto 10px; place-items: center; border-radius: 50%; background: var(--mint); color: var(--green-dark); }
+    .upload-icon svg { width: 19px; height: 19px; }
+    .drop-title { margin-bottom: 4px; font-weight: 700; }
+    .drop-subtitle { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+    .file-button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--green); border-radius: 5px; background: var(--green); color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; transition: background .15s ease; }
+    .file-button:hover { background: var(--green-dark); }
+    .file-button svg { width: 15px; height: 15px; }
+    #file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    .file-name { overflow: hidden; margin: 10px 0 0; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .mapping { grid-column: 2; grid-row: 2 / span 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-self: start; gap: 13px; margin-top: 0; }
+    .field label { display: block; margin-bottom: 6px; color: #40504d; font-size: 12px; font-weight: 700; }
+    .field select, .field input[type="number"] { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); outline: none; }
+    .field select:focus, .field input[type="number"]:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgb(22 123 104 / 12%); }
+    .mapping[hidden], .results[hidden], .empty-state[hidden] { display: none; }
+    .helper { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .error { grid-column: 1; margin: 12px 0 0; color: #a43f30; font-size: 12px; line-height: 1.5; }
+    .results-column { min-width: 0; }
+    .empty-state { display: grid; min-height: 365px; padding: 32px; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: rgb(255 255 255 / 88%); text-align: center; animation: rise-in .5s .08s ease both; }
+    .empty-mark { display: grid; width: 52px; height: 52px; margin: 0 auto 14px; place-items: center; border-radius: 15px; background: #fbece5; color: var(--coral); }
+    .empty-mark svg { width: 26px; height: 26px; }
+    .empty-state h2 { margin-bottom: 8px; font-family: "Newsreader", Georgia, serif; font-size: 24px; font-weight: 500; }
+    .empty-state p { max-width: 300px; margin: 0; color: var(--muted); line-height: 1.6; }
+    .results { animation: rise-in .35s ease both; }
+    .results-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 0 0 14px; }
+    .results-head .eyebrow { margin-bottom: 5px; }
+    .results-head h2 { font-family: "Newsreader", Georgia, serif; font-size: 26px; font-weight: 500; }
+    .year-picker { width: 150px; flex: 0 0 auto; }
+    .year-picker label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .year-picker select { width: 100%; height: 36px; padding: 0 9px; border: 1px solid var(--line); border-radius: 5px; background: white; color: var(--ink); }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .metric { min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); }
+    .metric-label { margin-bottom: 8px; color: var(--muted); font-size: 11px; }
+    .metric-value { overflow: hidden; margin: 0; font-size: 20px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .chart-panel { padding: 19px 20px 12px; }
+    .chart-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .chart-title p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .pie-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .pie-panel { min-width: 0; }
+    .pie-wrap { height: 290px; }
+    .diagnoses-cell { min-width: 280px; text-align: left; white-space: normal; }
+    .legend-chip { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .legend-line { width: 18px; height: 2px; background: var(--green); }
+    .chart-wrap { position: relative; height: 260px; }
+    .table-panel { margin-top: 14px; overflow: hidden; }
+    .table-header { padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .table-header h2 { font-size: 13px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { padding: 10px 18px; border-bottom: 1px solid #edf1ee; text-align: right; white-space: nowrap; }
+    th { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    td { font-size: 12px; }
+    th:first-child, td:first-child { text-align: left; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:last-child { background: #f2f8f5; font-weight: 700; }
+    .footer-note { margin: 14px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    @keyframes rise-in { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 780px) {
+      .shell { width: min(100% - 28px, 600px); padding-top: 20px; }
+      .topbar { margin-bottom: 32px; }
+      .workspace { grid-template-columns: 1fr; }
+      .setup { grid-template-columns: 1fr; }
+      .section-heading, .dropzone, .error, .mapping { grid-column: 1; grid-row: auto; }
+      .mapping { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 20px; }
+      .pie-grid { grid-template-columns: 1fr; }
+      .empty-state { min-height: 260px; }
+    }
+    @media (max-width: 480px) {
+      .local-note { font-size: 0; }
+      .local-note .status-dot { width: 9px; height: 9px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .mapping { grid-template-columns: 1fr; }
+      .metric { padding: 12px 14px; }
+      .metric-value { font-size: 18px; }
+      .results-head { align-items: start; }
+      .results-head h2 { font-size: 23px; }
+      .chart-panel { padding: 15px 12px 10px; }
+      .chart-wrap { height: 230px; }
+      th, td { padding-right: 12px; padding-left: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18V6m0 12h16M7 15l4-4 3 2 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Claim Trend</span>
+      </div>
+      <div class="local-note"><span class="status-dot"></span> Your workbook stays in this browser</div>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow">Portfolio analytics</p>
+      <h1>See how claims build<br>through your fiscal year.</h1>
+      <p class="intro-copy">Upload an Excel workbook, choose your fiscal calendar and data columns, and explore the running total month by month.</p>
+    </section>
+
+    <div class="workspace">
+      <aside class="panel setup" aria-label="Workbook and chart setup">
+        <div class="section-heading"><h2>Set up your trend</h2><span class="step">01 / Upload & map</span></div>
+        <div class="dropzone" id="dropzone">
+          <div>
+            <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v5h14v-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <p class="drop-title">Drop your workbook here</p>
+            <p class="drop-subtitle">Excel files .xlsx or .xls</p>
+            <label class="file-button" for="file-input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>Choose file</label>
+            <input id="file-input" type="file" accept=".xlsx,.xls,.xlsm">
+            <p class="file-name" id="file-name">No workbook selected</p>
+          </div>
+        </div>
+        <p class="error" id="error-message" role="alert" hidden></p>
+        <div class="mapping" id="mapping" hidden>
+          <div class="field"><label for="sheet-select">Worksheet</label><select id="sheet-select"></select></div>
+          <div class="field"><label for="header-row">Column names are on row</label><input id="header-row" type="number" min="1" step="1" value="1"></div>
+          <div class="field"><label for="fiscal-month">First month of fiscal year</label><select id="fiscal-month"><option value="">Choose a month</option></select></div>
+          <div class="field"><label for="date-column">Date column</label><select id="date-column"><option value="">Choose a date field</option></select></div>
+          <div class="field"><label for="amount-column">Amount Insured column</label><select id="amount-column"><option value="">Choose an amount field</option></select></div>
+          <div class="field"><label for="incurred-column">Amount Incurred column</label><select id="incurred-column"><option value="">Choose an amount field</option></select></div>
+          <div class="field"><label for="claimant-column">Claimant ID column</label><select id="claimant-column"><option value="">Choose a claimant ID field</option></select></div>
+          <div class="field"><label for="type-column">Claim type column</label><select id="type-column"><option value="">Choose a claim type field</option></select></div>
+          <div class="field"><label for="status-column">Status column (optional)</label><select id="status-column"><option value="">No status column</option></select></div>
+          <div class="field"><label for="relationship-column">Relationship column</label><select id="relationship-column"><option value="">Choose a relationship field</option></select></div>
+          <div class="field"><label for="age-column">Age column</label><select id="age-column"><option value="">Choose an age field</option></select></div>
+          <div class="field"><label for="diagnosis-column">Diagnosis column</label><select id="diagnosis-column"><option value="">Choose a diagnosis field</option></select></div>
+          <p class="helper">The chart accumulates Amount Insured. Summary cards show totals and distinct claimants for the selected fiscal year.</p>
+        </div>
+      </aside>
+
+      <section class="results-column" aria-live="polite">
+        <div class="empty-state" id="empty-state">
+          <div>
+            <span class="empty-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 18V6m0 12h16M7 15l4-4 3 2 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <h2>Your trend will appear here</h2>
+            <p>Start by uploading the workbook you want to explore. You can choose the sheet and columns afterward.</p>
+          </div>
+        </div>
+        <div class="results" id="results" hidden>
+          <div class="results-head">
+            <div><p class="eyebrow">Selected fiscal year</p><h2 id="result-title">Fiscal year summary</h2></div>
+            <div class="year-picker"><label for="year-select">Detail year</label><select id="year-select"></select></div>
+          </div>
+          <div class="metrics">
+            <article class="metric"><p class="metric-label">Total incurred</p><p class="metric-value" id="metric-incurred">—</p></article>
+            <article class="metric"><p class="metric-label">Total insured</p><p class="metric-value" id="metric-insured">—</p></article>
+            <article class="metric"><p class="metric-label">Insured / incurred</p><p class="metric-value" id="metric-ratio">—</p></article>
+            <article class="metric"><p class="metric-label">Distinct claimants</p><p class="metric-value" id="metric-claimants">—</p></article>
+          </div>
+          <section class="panel chart-panel" aria-label="Cumulative claim chart">
+            <div class="chart-title"><div><h2>Amount Insured by fiscal year</h2><p>Cumulative values shown by fiscal month.</p></div></div>
+            <div class="chart-wrap"><canvas id="trend-chart" aria-label="Cumulative amount trend line chart"></canvas></div>
+          </section>
+          <section class="panel chart-panel table-panel" aria-label="Annual insured amount by claim type">
+            <div class="chart-title"><div><h2>Annual insured amount by claim type</h2><p>Fiscal year totals grouped by claim category.</p></div></div>
+            <div class="chart-wrap"><canvas id="type-chart" aria-label="Grouped bar chart of annual insured amount by claim type"></canvas><p class="helper" id="type-chart-message" hidden></p></div>
+            <p class="footer-note">OPS is grouped as Outpatient Specialist, OPC as Outpatient GP, and GHS categories as Inpatient.</p>
+          </section>
+          <section class="panel table-panel" aria-label="Annual claim metrics">
+            <div class="table-header"><h2>Annual claim metrics</h2></div>
+            <div class="table-scroll"><table class="annual-summary-table"><thead><tr><th>Fiscal year</th><th>Claimants</th><th>Claims</th><th>Admissions</th><th>Total insured</th><th>Average per claim</th><th>Average per claimant</th><th>Average per admission</th></tr></thead><tbody id="annual-summary-rows"></tbody></table></div>
+            <p class="footer-note">Claimants are distinct IDs. Claims exclude Reject when a status column is selected; otherwise all dated rows count. Admissions include GHS or IP claim types except those containing POST.</p>
+          </section>
+          <div class="pie-grid" aria-label="Selected fiscal year claim breakdowns">
+            <section class="panel chart-panel pie-panel" aria-label="Claims by relationship">
+              <div class="chart-title"><div><h2>Claims by relationship</h2><p id="relationship-chart-subtitle">Selected fiscal year claim count.</p></div></div>
+              <div class="chart-wrap pie-wrap"><canvas id="relationship-chart" aria-label="Pie chart of claims by relationship"></canvas><p class="helper" id="relationship-chart-message" hidden></p></div>
+            </section>
+            <section class="panel chart-panel pie-panel" aria-label="Claims by age group">
+              <div class="chart-title"><div><h2>Claims by age group</h2><p id="age-chart-subtitle">Selected fiscal year claim count.</p></div></div>
+              <div class="chart-wrap pie-wrap"><canvas id="age-chart" aria-label="Pie chart of claims by age group"></canvas><p class="helper" id="age-chart-message" hidden></p></div>
+            </section>
+          </div>
+          <section class="panel table-panel" aria-label="Selected fiscal year age group details">
+            <div class="table-header"><h2 id="age-table-title">Age group details</h2></div>
+            <div class="table-scroll"><table><thead><tr><th>Age group</th><th>Claims</th><th>Claimants</th><th>Total insured</th><th>Average insured per claimant</th><th>Top 3 diagnoses</th></tr></thead><tbody id="age-summary-rows"></tbody></table></div>
+          </section>
+          <section class="panel table-panel">
+            <div class="table-header"><h2>Monthly breakdown</h2></div>
+            <div class="table-scroll"><table><thead><tr><th>Fiscal month</th><th>Monthly amount</th><th>Cumulative amount</th><th>Rows</th></tr></thead><tbody id="monthly-rows"></tbody></table></div>
+          </section>
+          <p class="footer-note">Chart totals include rows with a readable date and numeric Amount Insured. Missing or non-numeric values are excluded from each summary measure.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthShort = monthNames.map((month) => month.slice(0, 3));
+      const fileInput = document.getElementById("file-input");
+      const dropzone = document.getElementById("dropzone");
+      const fileName = document.getElementById("file-name");
+      const errorMessage = document.getElementById("error-message");
+      const mapping = document.getElementById("mapping");
+      const sheetSelect = document.getElementById("sheet-select");
+      const headerRow = document.getElementById("header-row");
+      const fiscalMonth = document.getElementById("fiscal-month");
+      const dateColumn = document.getElementById("date-column");
+      const amountColumn = document.getElementById("amount-column");
+      const incurredColumn = document.getElementById("incurred-column");
+      const claimantColumn = document.getElementById("claimant-column");
+      const typeColumn = document.getElementById("type-column");
+      const statusColumn = document.getElementById("status-column");
+      const relationshipColumn = document.getElementById("relationship-column");
+      const ageColumn = document.getElementById("age-column");
+      const diagnosisColumn = document.getElementById("diagnosis-column");
+      const yearSelect = document.getElementById("year-select");
+      const emptyState = document.getElementById("empty-state");
+      const results = document.getElementById("results");
+      let workbook = null;
+      let headers = [];
+      let dataRows = [];
+      let chart = null;
+      let typeChart = null;
+      let relationshipChart = null;
+      let ageChart = null;
+      let currentFiscalYears = [];
+      const ageGroupLabels = ["Under 20", "20-29", "30-39", "40-49", "50-59", "60+", "Unknown"];
+      const pieColors = ["#167b68", "#cb684e", "#3977a8", "#c09435", "#748f62", "#886a9b", "#687878"];
+
+      monthNames.forEach((month, index) => {
+        const option = document.createElement("option");
+        option.value = String(index + 1);
+        option.textContent = month;
+        fiscalMonth.append(option);
+      });
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.hidden = !message;
+      }
+
+      function normalizedHeader(value, index) {
+        const label = value == null ? "" : String(value).trim();
+        return label || `Column ${index + 1}`;
+      }
+
+      function findHeader(patterns) {
+        return headers.findIndex((header) => patterns.some((pattern) => pattern.test(header)));
+      }
+
+      function fillSelect(select, placeholder) {
+        select.replaceChildren(new Option(placeholder, ""));
+        headers.forEach((header, index) => select.add(new Option(header, String(index))));
+      }
+
+      function detectColumns() {
+        const dateIndex = findHeader([/date/i, /reported/i]);
+        const amountIndex = [/amount\s*insured/i, /insured\s*amount/i, /claim\s*amount/i, /amount/i, /incurred/i]
+          .map((pattern) => headers.findIndex((header) => pattern.test(header)))
+          .find((index) => index >= 0) ?? -1;
+        const incurredIndex = findHeader([/amount\s*incurred/i, /incurred/i]);
+        const claimantIndex = findHeader([/^claimant\s*id$/i, /claimant.*id/i]);
+        const typeIndex = findHeader([/type\s*of\s*claim/i, /claim\s*type/i]);
+        const statusIndex = findHeader([/^status$/i, /claim.*status/i, /status/i]);
+        const relationshipIndex = findHeader([/relationship/i]);
+        const ageIndex = findHeader([/^age$/i]);
+        const diagnosisIndex = findHeader([/^diagnosis$/i]);
+        dateColumn.value = dateIndex >= 0 ? String(dateIndex) : "";
+        amountColumn.value = amountIndex >= 0 ? String(amountIndex) : "";
+        incurredColumn.value = incurredIndex >= 0 ? String(incurredIndex) : "";
+        claimantColumn.value = claimantIndex >= 0 ? String(claimantIndex) : "";
+        typeColumn.value = typeIndex >= 0 ? String(typeIndex) : "";
+        statusColumn.value = statusIndex >= 0 ? String(statusIndex) : "";
+        relationshipColumn.value = relationshipIndex >= 0 ? String(relationshipIndex) : "";
+        ageColumn.value = ageIndex >= 0 ? String(ageIndex) : "";
+        diagnosisColumn.value = diagnosisIndex >= 0 ? String(diagnosisIndex) : "";
+      }
+
+      function loadSheet(sheetName, selectedHeaderRowIndex = null) {
+        const sheet = workbook?.Sheets[sheetName];
+        if (!sheet) return;
+        const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true, blankrows: true });
+        let detectedHeaderRowIndex = -1;
+        let maxHeaderCells = 0;
+        grid.forEach((row, index) => {
+          const populatedCells = row.filter((cell) => cell != null && String(cell).trim() !== "").length;
+          if (populatedCells > maxHeaderCells) {
+            detectedHeaderRowIndex = index;
+            maxHeaderCells = populatedCells;
+          }
+        });
+        if (detectedHeaderRowIndex < 0) {
+          showError("This worksheet is empty. Please choose another sheet.");
+          mapping.hidden = true;
+          return;
+        }
+        const headerRowIndex = selectedHeaderRowIndex ?? detectedHeaderRowIndex;
+        headerRow.max = String(grid.length);
+        if (!Number.isInteger(headerRowIndex) || headerRowIndex < 0 || headerRowIndex >= grid.length) {
+          showError(`Choose a header row from 1 to ${grid.length}.`);
+          results.hidden = true;
+          emptyState.hidden = false;
+          mapping.hidden = false;
+          return;
+        }
+        headerRow.value = String(headerRowIndex + 1);
+        if (!grid[headerRowIndex]?.some((cell) => cell != null && String(cell).trim() !== "")) {
+          showError(`Row ${headerRowIndex + 1} is empty. Choose the row containing column names.`);
+          results.hidden = true;
+          emptyState.hidden = false;
+          mapping.hidden = false;
+          return;
+        }
+        headers = grid[headerRowIndex].map(normalizedHeader);
+        dataRows = grid.slice(headerRowIndex + 1).filter((row) => row.some((cell) => cell != null && String(cell).trim() !== ""));
+        fillSelect(dateColumn, "Choose a date field");
+        fillSelect(amountColumn, "Choose an amount field");
+        fillSelect(incurredColumn, "Choose an amount field");
+        fillSelect(claimantColumn, "Choose a claimant ID field");
+        fillSelect(typeColumn, "Choose a claim type field");
+        fillSelect(statusColumn, "No status column");
+        fillSelect(relationshipColumn, "Choose a relationship field");
+        fillSelect(ageColumn, "Choose an age field");
+        fillSelect(diagnosisColumn, "Choose a diagnosis field");
+        detectColumns();
+        mapping.hidden = false;
+        showError("");
+        updateDashboard();
+      }
+
+      async function readWorkbook(file) {
+        if (!file) return;
+        if (!/\.(xlsx|xls|xlsm)$/i.test(file.name)) {
+          showError("Please choose an Excel workbook (.xlsx, .xls, or .xlsm).");
+          return;
+        }
+        fileName.textContent = file.name;
+        results.hidden = true;
+        emptyState.hidden = false;
+        mapping.hidden = true;
+        showError("");
+        try {
+          const bytes = await file.arrayBuffer();
+          workbook = XLSX.read(bytes, { type: "array", cellDates: true });
+          if (!workbook.SheetNames.length) throw new Error("No worksheets were found in this workbook.");
+          sheetSelect.replaceChildren(...workbook.SheetNames.map((name) => new Option(name, name)));
+          mapping.hidden = false;
+          loadSheet(workbook.SheetNames[0]);
+        } catch (error) {
+          showError(error.message || "We couldn't read this workbook. Please check the file and try again.");
+          mapping.hidden = true;
+        }
+      }
+
+      function inferDateOrder(dateIndex) {
+        let dayFirst = 0;
+        let monthFirst = 0;
+        dataRows.forEach((row) => {
+          if (typeof row[dateIndex] !== "string") return;
+          const match = row[dateIndex].trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:$|[ T])/);
+          if (!match) return;
+          const first = Number(match[1]);
+          const second = Number(match[2]);
+          if (first > 12 && second <= 12) dayFirst += 1;
+          if (second > 12 && first <= 12) monthFirst += 1;
+        });
+        return dayFirst > monthFirst ? "dmy" : "mdy";
+      }
+
+      function parseDate(value, dateOrder) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+        if (typeof value === "number" && Number.isFinite(value)) {
+          const compactDate = Number.isInteger(value) ? String(value).match(/^(\d{4})(\d{2})(\d{2})$/) : null;
+          if (compactDate) {
+            const year = Number(compactDate[1]);
+            const month = Number(compactDate[2]);
+            const day = Number(compactDate[3]);
+            const date = new Date(year, month - 1, day);
+            if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) return date;
+          }
+          const parts = XLSX.SSF.parse_date_code(value);
+          if (parts) return new Date(parts.y, parts.m - 1, parts.d);
+        }
+        if (typeof value !== "string" || !value.trim()) return null;
+        const text = value.trim();
+        const compactDate = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+        if (compactDate) {
+          const year = Number(compactDate[1]);
+          const month = Number(compactDate[2]);
+          const day = Number(compactDate[3]);
+          const date = new Date(year, month - 1, day);
+          if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) return date;
+          return null;
+        }
+        const iso = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+        if (iso) {
+          const date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+          return Number.isNaN(date.getTime()) ? null : date;
+        }
+        const numericDate = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:$|[ T])/);
+        if (numericDate) {
+          const first = Number(numericDate[1]);
+          const second = Number(numericDate[2]);
+          const rawYear = Number(numericDate[3]);
+          const year = rawYear < 100 ? (rawYear < 50 ? 2000 + rawYear : 1900 + rawYear) : rawYear;
+          const day = first > 12 || (second <= 12 && dateOrder === "dmy") ? first : second;
+          const month = first > 12 || (second <= 12 && dateOrder === "dmy") ? second : first;
+          const date = new Date(year, month - 1, day);
+          if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+          return date;
+        }
+        const parsed = new Date(text);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+
+      function parseAmount(value) {
+        if (typeof value === "number") return Number.isFinite(value) ? value : null;
+        if (typeof value !== "string") return null;
+        const text = value.trim();
+        if (!text) return null;
+        const negative = /^\(.*\)$/.test(text);
+        const numeric = text.replace(/[,$£€¥\s]/g, "").replace(/[()]/g, "");
+        if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(numeric)) return null;
+        const amount = Number(numeric);
+        return Number.isFinite(amount) ? (negative ? -Math.abs(amount) : amount) : null;
+      }
+
+      function fiscalStartYear(date, startMonth) {
+        return date.getFullYear() - (date.getMonth() + 1 < startMonth ? 1 : 0);
+      }
+
+      function formatYear(startYear) {
+        const end = String((startYear + 1) % 100).padStart(2, "0");
+        return `FY ${startYear}/${end}`;
+      }
+
+      function getValidRows() {
+        const dateIndex = Number(dateColumn.value);
+        const amountIndex = Number(amountColumn.value);
+        if (dateColumn.value === "" || amountColumn.value === "") return [];
+        const dateOrder = inferDateOrder(dateIndex);
+        return dataRows.flatMap((row) => {
+          const date = parseDate(row[dateIndex], dateOrder);
+          const amount = parseAmount(row[amountIndex]);
+          return date && amount != null ? [{ date, amount }] : [];
+        });
+      }
+
+      function getYearMetrics(selectedYear, startMonth) {
+        const dateIndex = Number(dateColumn.value);
+        const insuredIndex = Number(amountColumn.value);
+        const incurredIndex = Number(incurredColumn.value);
+        const claimantIndex = Number(claimantColumn.value);
+        const dateOrder = inferDateOrder(dateIndex);
+        const claimantIds = new Set();
+        let totalInsured = 0;
+        let totalIncurred = 0;
+        dataRows.forEach((row) => {
+          const date = parseDate(row[dateIndex], dateOrder);
+          if (!date || fiscalStartYear(date, startMonth) !== selectedYear) return;
+          const insured = parseAmount(row[insuredIndex]);
+          const incurred = parseAmount(row[incurredIndex]);
+          if (insured != null) totalInsured += insured;
+          if (incurred != null) totalIncurred += incurred;
+          const claimantId = row[claimantIndex];
+          if (claimantId != null && String(claimantId).trim()) claimantIds.add(String(claimantId).trim());
+        });
+        return { totalInsured, totalIncurred, claimantCount: claimantIds.size };
+      }
+
+      function claimTypeGroupIndex(value) {
+        const claimType = String(value ?? "").trim().toUpperCase();
+        if (claimType === "OPS" || claimType === "OUTPATIENT SPECIALIST") return 0;
+        if (claimType === "OPC" || claimType === "OUTPATIENT GP" || claimType === "OUTPATIENT GENERAL PRACTITIONER") return 1;
+        if (claimType === "INPATIENT" || claimType === "GHS" || claimType.startsWith("GHS ")) return 2;
+        return -1;
+      }
+
+      function isCountedClaim(row) {
+        if (statusColumn.value === "") return true;
+        return String(row[Number(statusColumn.value)] ?? "").trim().toUpperCase() !== "REJECT";
+      }
+
+      function getCountedRowsForYear(selectedYear, startMonth) {
+        const dateIndex = Number(dateColumn.value);
+        const dateOrder = inferDateOrder(dateIndex);
+        return dataRows.flatMap((row) => {
+          const date = parseDate(row[dateIndex], dateOrder);
+          if (!date || fiscalStartYear(date, startMonth) !== selectedYear || !isCountedClaim(row)) return [];
+          return [{ row, date }];
+        });
+      }
+
+      function ageGroupFor(value) {
+        const age = parseAmount(value);
+        if (age == null || age < 0) return "Unknown";
+        if (age < 20) return "Under 20";
+        if (age >= 60) return "60+";
+        const decade = Math.floor(age / 10) * 10;
+        return `${decade}-${decade + 9}`;
+      }
+
+      function renderPieChart(existingChart, canvasId, messageId, entries, emptyMessage) {
+        if (existingChart) existingChart.destroy();
+        const canvas = document.getElementById(canvasId);
+        const message = document.getElementById(messageId);
+        const validEntries = entries.filter(([, count]) => count > 0);
+        if (!validEntries.length) {
+          canvas.hidden = true;
+          message.textContent = emptyMessage;
+          message.hidden = false;
+          return null;
+        }
+        canvas.hidden = false;
+        message.hidden = true;
+        return new Chart(canvas.getContext("2d"), {
+          type: "pie",
+          data: {
+            labels: validEntries.map(([label]) => label),
+            datasets: [{
+              data: validEntries.map(([, count]) => count),
+              backgroundColor: validEntries.map((_, index) => pieColors[index % pieColors.length]),
+              borderColor: "#fff",
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true, position: "bottom" },
+              tooltip: { callbacks: { label: (context) => {
+                const total = context.dataset.data.reduce((sum, value) => sum + value, 0);
+                const percentage = total ? context.parsed / total * 100 : 0;
+                return ` ${context.label}: ${formatAmount(context.parsed)} claims (${formatAmount(percentage)}%)`;
+              } } }
+            }
+          }
+        });
+      }
+
+      function renderDemographicBreakdowns(selectedYear, startMonth) {
+        const countedRows = getCountedRowsForYear(selectedYear, startMonth);
+        const relationshipCounts = new Map();
+        const ageCounts = new Map(ageGroupLabels.map((label) => [label, 0]));
+        if (relationshipColumn.value !== "") {
+          const relationshipIndex = Number(relationshipColumn.value);
+          countedRows.forEach(({ row }) => {
+            const relationship = String(row[relationshipIndex] ?? "").trim() || "Unknown";
+            relationshipCounts.set(relationship, (relationshipCounts.get(relationship) || 0) + 1);
+          });
+        }
+        if (ageColumn.value !== "") {
+          const ageIndex = Number(ageColumn.value);
+          countedRows.forEach(({ row }) => {
+            const group = ageGroupFor(row[ageIndex]);
+            ageCounts.set(group, ageCounts.get(group) + 1);
+          });
+        }
+        const yearLabel = formatYear(selectedYear);
+        document.getElementById("relationship-chart-subtitle").textContent = `${yearLabel} claim count`;
+        document.getElementById("age-chart-subtitle").textContent = `${yearLabel} claim count`;
+        relationshipChart = relationshipColumn.value === ""
+          ? renderPieChart(relationshipChart, "relationship-chart", "relationship-chart-message", [], "Choose a relationship column to show this chart.")
+          : renderPieChart(relationshipChart, "relationship-chart", "relationship-chart-message", [...relationshipCounts.entries()].sort(([, countA], [, countB]) => countB - countA), "No relationship data is available for this fiscal year.");
+        ageChart = ageColumn.value === ""
+          ? renderPieChart(ageChart, "age-chart", "age-chart-message", [], "Choose an age column to show this chart.")
+          : renderPieChart(ageChart, "age-chart", "age-chart-message", [...ageCounts.entries()], "No age data is available for this fiscal year.");
+        renderAgeGroupTable(countedRows, selectedYear);
+      }
+
+      function renderAgeGroupTable(countedRows, selectedYear) {
+        const tbody = document.getElementById("age-summary-rows");
+        const diagnosisIndex = diagnosisColumn.value === "" ? -1 : Number(diagnosisColumn.value);
+        document.getElementById("age-table-title").textContent = `Age group details · ${formatYear(selectedYear)}`;
+        if (ageColumn.value === "") {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 6;
+          cell.textContent = "Choose an age column to show this table.";
+          row.append(cell);
+          tbody.replaceChildren(row);
+          return;
+        }
+        const groups = new Map();
+        const ageIndex = Number(ageColumn.value);
+        const claimantIndex = Number(claimantColumn.value);
+        const insuredIndex = Number(amountColumn.value);
+        countedRows.forEach(({ row }) => {
+          const ageGroup = ageGroupFor(row[ageIndex]);
+          if (!groups.has(ageGroup)) groups.set(ageGroup, { claims: 0, claimants: new Set(), insured: 0, diagnoses: new Map() });
+          const totals = groups.get(ageGroup);
+          totals.claims += 1;
+          const claimantId = row[claimantIndex];
+          if (claimantId != null && String(claimantId).trim()) totals.claimants.add(String(claimantId).trim());
+          const insured = parseAmount(row[insuredIndex]);
+          if (insured != null) totals.insured += insured;
+          const diagnosis = diagnosisIndex >= 0 ? String(row[diagnosisIndex] ?? "").trim() : "";
+          if (diagnosis) totals.diagnoses.set(diagnosis, (totals.diagnoses.get(diagnosis) || 0) + 1);
+        });
+        const groupOrder = new Map(ageGroupLabels.map((label, index) => [label, index]));
+        const rows = [...groups.entries()].sort(([groupA], [groupB]) => groupOrder.get(groupA) - groupOrder.get(groupB)).map(([group, totals]) => {
+          const claimantCount = totals.claimants.size;
+          const topDiagnoses = diagnosisIndex < 0
+            ? "Choose a diagnosis column"
+            : [...totals.diagnoses.entries()]
+              .sort(([diagnosisA, countA], [diagnosisB, countB]) => countB - countA || diagnosisA.localeCompare(diagnosisB))
+              .slice(0, 3)
+              .map(([diagnosis, count]) => `${diagnosis} (${count})`)
+              .join(", ") || "No diagnosis data";
+          return { group, claims: totals.claims, claimantCount, insured: totals.insured, average: claimantCount ? totals.insured / claimantCount : null, topDiagnoses };
+        });
+        tbody.replaceChildren(...rows.map((summary) => {
+          const row = document.createElement("tr");
+          [summary.group, formatAmount(summary.claims), formatAmount(summary.claimantCount), formatAmount(summary.insured), summary.average == null ? "—" : formatAmount(summary.average), summary.topDiagnoses].forEach((value, index) => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            if (index === 5) cell.classList.add("diagnoses-cell");
+            row.append(cell);
+          });
+          return row;
+        }));
+      }
+
+      function renderAnnualSummary(startMonth) {
+        const dateIndex = Number(dateColumn.value);
+        const insuredIndex = Number(amountColumn.value);
+        const claimantIndex = Number(claimantColumn.value);
+        const typeIndex = Number(typeColumn.value);
+        const statusIndex = statusColumn.value === "" ? -1 : Number(statusColumn.value);
+        const dateOrder = inferDateOrder(dateIndex);
+        const annualTotals = new Map();
+        dataRows.forEach((row) => {
+          const date = parseDate(row[dateIndex], dateOrder);
+          if (!date) return;
+          const year = fiscalStartYear(date, startMonth);
+          if (!annualTotals.has(year)) {
+            annualTotals.set(year, { claimants: new Set(), claims: 0, admissions: 0, insured: 0 });
+          }
+          const totals = annualTotals.get(year);
+          const status = statusIndex >= 0 ? String(row[statusIndex] ?? "").trim().toUpperCase() : "";
+          if (statusIndex < 0 || status !== "REJECT") totals.claims += 1;
+          const claimantId = row[claimantIndex];
+          if (claimantId != null && String(claimantId).trim()) totals.claimants.add(String(claimantId).trim());
+          const insured = parseAmount(row[insuredIndex]);
+          if (insured != null) totals.insured += insured;
+          const claimType = String(row[typeIndex] ?? "").trim().toUpperCase();
+          if (!claimType.includes("POST") && (claimType.includes("GHS") || claimType.includes("IP"))) totals.admissions += 1;
+        });
+        const tbody = document.getElementById("annual-summary-rows");
+        tbody.replaceChildren(...[...annualTotals.entries()].sort(([yearA], [yearB]) => yearA - yearB).map(([year, totals]) => {
+          const claimantCount = totals.claimants.size;
+          const values = [
+            formatYear(year),
+            formatAmount(claimantCount),
+            formatAmount(totals.claims),
+            formatAmount(totals.admissions),
+            formatAmount(totals.insured),
+            totals.claims ? formatAmount(totals.insured / totals.claims) : "—",
+            claimantCount ? formatAmount(totals.insured / claimantCount) : "—",
+            totals.admissions ? formatAmount(totals.insured / totals.admissions) : "—"
+          ];
+          const row = document.createElement("tr");
+          values.forEach((value) => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          });
+          return row;
+        }));
+      }
+
+      function renderYearOptions(validRows, startMonth) {
+        const years = [...new Set(validRows.map(({ date }) => fiscalStartYear(date, startMonth)))].sort((a, b) => b - a);
+        const previous = Number(yearSelect.value);
+        currentFiscalYears = years;
+        yearSelect.replaceChildren(...years.map((year) => new Option(formatYear(year), String(year))));
+        if (years.length) yearSelect.value = years.includes(previous) ? String(previous) : String(years[0]);
+      }
+
+      function formatAmount(value) {
+        return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(value);
+      }
+
+      function updateDashboard() {
+        if (!workbook || fiscalMonth.value === "" || dateColumn.value === "" || amountColumn.value === "" || incurredColumn.value === "" || claimantColumn.value === "") {
+          results.hidden = true;
+          emptyState.hidden = false;
+          return;
+        }
+        const startMonth = Number(fiscalMonth.value);
+        const validRows = getValidRows();
+        renderYearOptions(validRows, startMonth);
+        if (!currentFiscalYears.length) {
+          results.hidden = true;
+          emptyState.hidden = false;
+          showError("No rows contain both a readable date and a numeric amount. Check your selected columns and date format.");
+          return;
+        }
+        showError("");
+        const selectedYear = Number(yearSelect.value);
+        const monthly = Array.from({ length: 12 }, (_, offset) => ({
+          month: (startMonth - 1 + offset) % 12,
+          amount: 0,
+          rows: 0,
+          cumulative: 0
+        }));
+        validRows.forEach(({ date, amount }) => {
+          if (fiscalStartYear(date, startMonth) !== selectedYear) return;
+          const offset = (date.getMonth() - (startMonth - 1) + 12) % 12;
+          monthly[offset].amount += amount;
+          monthly[offset].rows += 1;
+        });
+        let runningTotal = 0;
+        monthly.forEach((month) => {
+          runningTotal += month.amount;
+          month.cumulative = runningTotal;
+        });
+        const yearMetrics = getYearMetrics(selectedYear, startMonth);
+        const comparisonYears = currentFiscalYears.slice(0, 3).sort((a, b) => a - b);
+        const comparisonSeries = comparisonYears.map((year) => {
+          const monthlyAmounts = Array(12).fill(0);
+          validRows.forEach(({ date, amount }) => {
+            if (fiscalStartYear(date, startMonth) !== year) return;
+            const offset = (date.getMonth() - (startMonth - 1) + 12) % 12;
+            monthlyAmounts[offset] += amount;
+          });
+          let cumulative = 0;
+          return {
+            year,
+            values: monthlyAmounts.map((amount) => (cumulative += amount))
+          };
+        });
+        document.getElementById("result-title").textContent = `${formatYear(selectedYear)} summary`;
+        document.getElementById("metric-insured").textContent = formatAmount(yearMetrics.totalInsured);
+        document.getElementById("metric-incurred").textContent = formatAmount(yearMetrics.totalIncurred);
+        document.getElementById("metric-ratio").textContent = yearMetrics.totalIncurred === 0
+          ? "—"
+          : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(yearMetrics.totalInsured / yearMetrics.totalIncurred * 100)}%`;
+        document.getElementById("metric-claimants").textContent = formatAmount(yearMetrics.claimantCount);
+        results.hidden = false;
+        emptyState.hidden = true;
+        renderTable(monthly);
+        renderChart(monthly, comparisonSeries);
+        renderClaimTypeChart(validRows, startMonth);
+        renderAnnualSummary(startMonth);
+        renderDemographicBreakdowns(selectedYear, startMonth);
+      }
+
+      function renderTable(monthly) {
+        const tbody = document.getElementById("monthly-rows");
+        tbody.replaceChildren(...monthly.map((month) => {
+          const row = document.createElement("tr");
+          [monthNames[month.month], formatAmount(month.amount), formatAmount(month.cumulative), formatAmount(month.rows)].forEach((value) => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          });
+          return row;
+        }));
+      }
+
+      function renderChart(monthly, comparisonSeries) {
+        const context = document.getElementById("trend-chart").getContext("2d");
+        if (chart) chart.destroy();
+        const lineColors = ["#167b68", "#cb684e", "#3977a8"];
+        chart = new Chart(context, {
+          type: "line",
+          data: {
+            labels: monthly.map((month) => monthShort[month.month]),
+            datasets: comparisonSeries.map((series, seriesIndex) => {
+              const color = lineColors[seriesIndex];
+              return {
+                label: formatYear(series.year),
+                data: series.values,
+                borderColor: color,
+                fill: false,
+                borderWidth: 2.5,
+                tension: 0.32,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: "#fff",
+                pointBorderColor: color,
+                pointBorderWidth: 2
+              };
+            })
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: "index" },
+            plugins: {
+              legend: { display: true, position: "bottom" },
+              tooltip: { callbacks: { label: (context) => ` ${context.dataset.label}: ${formatAmount(context.parsed.y)}` } }
+            },
+            scales: {
+              x: { grid: { display: false }, border: { display: false }, ticks: { color: "#697775", maxRotation: 0, autoSkip: false } },
+              y: {
+                beginAtZero: true,
+                border: { display: false, dash: [3, 4] },
+                grid: { color: "#edf1ee" },
+                ticks: { color: "#697775", maxTicksLimit: 5, callback: (value) => formatAmount(value) }
+              }
+            }
+          }
+        });
+      }
+
+      function renderClaimTypeChart(validRows, startMonth) {
+        const canvas = document.getElementById("type-chart");
+        const message = document.getElementById("type-chart-message");
+        if (typeChart) typeChart.destroy();
+        if (typeColumn.value === "") {
+          canvas.hidden = true;
+          message.textContent = "Choose the column containing claim types to show this chart.";
+          message.hidden = false;
+          return;
+        }
+        const years = [...new Set(validRows.map(({ date }) => fiscalStartYear(date, startMonth)))].sort((a, b) => a - b);
+        const totalsByYear = new Map(years.map((year) => [year, [0, 0, 0]]));
+        const dateIndex = Number(dateColumn.value);
+        const insuredIndex = Number(amountColumn.value);
+        const typeIndex = Number(typeColumn.value);
+        const dateOrder = inferDateOrder(dateIndex);
+        let matchedRows = 0;
+        dataRows.forEach((row) => {
+          const date = parseDate(row[dateIndex], dateOrder);
+          const amount = parseAmount(row[insuredIndex]);
+          const groupIndex = claimTypeGroupIndex(row[typeIndex]);
+          if (!date || amount == null || groupIndex < 0) return;
+          const year = fiscalStartYear(date, startMonth);
+          const yearTotals = totalsByYear.get(year);
+          if (!yearTotals) return;
+          yearTotals[groupIndex] += amount;
+          matchedRows += 1;
+        });
+        if (!matchedRows) {
+          canvas.hidden = true;
+          message.textContent = "No rows matched the Outpatient Specialist, Outpatient GP, or Inpatient groups.";
+          message.hidden = false;
+          return;
+        }
+        canvas.hidden = false;
+        message.hidden = true;
+        const claimGroups = [
+          { label: "Outpatient Specialist", color: "#167b68" },
+          { label: "Outpatient GP", color: "#cb684e" },
+          { label: "Inpatient", color: "#3977a8" }
+        ];
+        typeChart = new Chart(canvas.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: years.map(formatYear),
+            datasets: claimGroups.map((group, groupIndex) => ({
+              label: group.label,
+              data: years.map((year) => totalsByYear.get(year)[groupIndex]),
+              backgroundColor: group.color,
+              borderRadius: 3,
+              maxBarThickness: 42
+            }))
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: "index" },
+            plugins: {
+              legend: { display: true, position: "bottom" },
+              tooltip: { callbacks: { label: (context) => ` ${context.dataset.label}: ${formatAmount(context.parsed.y)}` } }
+            },
+            scales: {
+              x: { grid: { display: false }, border: { display: false }, title: { display: true, text: "Fiscal year", color: "#697775" } },
+              y: {
+                beginAtZero: true,
+                border: { display: false, dash: [3, 4] },
+                grid: { color: "#edf1ee" },
+                title: { display: true, text: "Total Amount Insured", color: "#697775" },
+                ticks: { color: "#697775", maxTicksLimit: 5, callback: (value) => formatAmount(value) }
+              }
+            }
+          }
+        });
+      }
+
+      fileInput.addEventListener("change", (event) => readWorkbook(event.target.files[0]));
+      [fiscalMonth, dateColumn, amountColumn, incurredColumn, claimantColumn, typeColumn, statusColumn, relationshipColumn, ageColumn, diagnosisColumn].forEach((select) => select.addEventListener("change", updateDashboard));
+      sheetSelect.addEventListener("change", () => loadSheet(sheetSelect.value));
+      headerRow.addEventListener("change", () => loadSheet(sheetSelect.value, Number(headerRow.value) - 1));
+      yearSelect.addEventListener("change", updateDashboard);
+      dropzone.addEventListener("dragover", (event) => { event.preventDefault(); dropzone.classList.add("dragover"); });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+      dropzone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dropzone.classList.remove("dragover");
+        readWorkbook(event.dataTransfer.files[0]);
+      });
+    })();
+  </script>
+</body>
+</html>
