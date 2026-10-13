@@ -95,6 +95,9 @@
     .pie-panel { min-width: 0; }
     .pie-wrap { height: 290px; }
     .diagnoses-cell { min-width: 280px; text-align: left; white-space: normal; }
+    .year-change { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 500; line-height: 1.25; }
+    .year-change.up { color: #b84434; }
+    .year-change.down { color: var(--green); }
     .legend-chip { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
     .legend-line { width: 18px; height: 2px; background: var(--green); }
     .chart-wrap { position: relative; height: 260px; }
@@ -697,26 +700,47 @@
           if (!claimType.includes("POST") && (claimType.includes("GHS") || claimType.includes("IP"))) totals.admissions += 1;
         });
         const tbody = document.getElementById("annual-summary-rows");
-        tbody.replaceChildren(...[...annualTotals.entries()].sort(([yearA], [yearB]) => yearA - yearB).map(([year, totals]) => {
+        let previousMetrics = null;
+        const rows = [...annualTotals.entries()].sort(([yearA], [yearB]) => yearA - yearB).map(([year, totals]) => {
           const claimantCount = totals.claimants.size;
-          const values = [
-            formatYear(year),
-            formatAmount(claimantCount),
-            formatAmount(totals.claims),
-            formatAmount(totals.admissions),
-            formatAmount(totals.insured),
-            totals.claims ? formatAmount(totals.insured / totals.claims) : "—",
-            claimantCount ? formatAmount(totals.insured / claimantCount) : "—",
-            totals.admissions ? formatAmount(totals.insured / totals.admissions) : "—"
+          const metrics = [
+            claimantCount,
+            totals.claims,
+            totals.admissions,
+            totals.insured,
+            totals.claims ? totals.insured / totals.claims : null,
+            claimantCount ? totals.insured / claimantCount : null,
+            totals.admissions ? totals.insured / totals.admissions : null
           ];
           const row = document.createElement("tr");
-          values.forEach((value) => {
+          const yearCell = document.createElement("td");
+          yearCell.textContent = formatYear(year);
+          row.append(yearCell);
+          metrics.forEach((value, index) => {
             const cell = document.createElement("td");
-            cell.textContent = value;
+            cell.textContent = value == null ? "—" : formatAmount(value);
+            const previousValue = previousMetrics?.[index];
+            if (previousMetrics && value != null && previousValue != null) {
+              const change = previousValue === 0 ? (value === 0 ? 0 : null) : (value - previousValue) / Math.abs(previousValue) * 100;
+              const indicator = document.createElement("span");
+              indicator.className = "year-change";
+              if (change == null) {
+                indicator.textContent = "New vs LY";
+                indicator.classList.add(value > 0 ? "up" : "down");
+              } else {
+                indicator.textContent = `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1, signDisplay: "always" }).format(change)}% vs LY`;
+                indicator.classList.add(change > 0 ? "up" : change < 0 ? "down" : "unchanged");
+              }
+              indicator.title = `Compared with ${formatYear(year - 1)}`;
+              indicator.setAttribute("aria-label", `${indicator.textContent}, compared with ${formatYear(year - 1)}`);
+              cell.append(indicator);
+            }
             row.append(cell);
           });
+          previousMetrics = metrics;
           return row;
-        }));
+        });
+        tbody.replaceChildren(...rows);
       }
 
       function renderYearOptions(validRows, startMonth) {
