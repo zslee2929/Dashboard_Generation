@@ -102,13 +102,15 @@
     .analysis-tab { margin-bottom: -1px; padding: 9px 13px; color: var(--muted); font-size: 12px; }
     .analysis-tab[aria-selected="true"] { border-color: var(--line) var(--line) #fff; color: var(--green-dark); }
     .tab-panel[hidden] { display: none; }
-    .growth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 16px 18px; }
+    .growth-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px 18px; }
     .growth-grid > div { min-width: 0; }
     .growth-grid .table-scroll { max-width: 100%; }
     .growth-grid h3 { margin: 0 0 10px; font-size: 13px; }
     .interactive-row { cursor: pointer; }
     .interactive-row:hover, .interactive-row.selected-filter-row { background: var(--mint); }
     .diagnosis-group-column { min-width: 180px; }
+    .year-change-up { color: #b84434; }
+    .year-change-down { color: var(--green); }
     .year-change { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 500; line-height: 1.25; }
     .year-change.up { color: #b84434; }
     .year-change.down { color: var(--green); }
@@ -199,6 +201,7 @@
           <div class="field"><label for="age-column">Age column</label><select id="age-column"><option value="">Choose an age field</option></select></div>
           <div class="field"><label for="diagnosis-column">Diagnosis column</label><select id="diagnosis-column"><option value="">Choose a diagnosis field</option></select></div>
           <div class="field"><label for="diagnosis-group-column">Diagnosis group column</label><select id="diagnosis-group-column"><option value="">Choose a diagnosis group field</option></select></div>
+          <div class="field"><label for="provider-column">Medical provider column</label><select id="provider-column"><option value="">Choose a provider field</option></select></div>
           <p class="helper">The chart accumulates Amount Insured. Summary cards show totals and distinct claimants for the selected fiscal year.</p>
         </div>
       </aside>
@@ -241,11 +244,23 @@
             <div class="table-scroll"><table class="annual-summary-table"><thead><tr><th>Fiscal year</th><th>Claimants</th><th>Claims</th><th>Admissions</th><th>Total insured</th><th>Average per claim</th><th>Average per claimant</th><th>Average per admission</th></tr></thead><tbody id="annual-summary-rows"></tbody></table></div>
             <p class="footer-note">Claimants are distinct IDs. Claims exclude Reject when a status column is selected; otherwise all dated rows count. Admissions include GHS or IP claim types except those containing POST.</p>
           </section>
-          <section class="panel table-panel tab-panel" id="diagnosis-tab-panel" role="tabpanel" aria-labelledby="diagnosis-tab-button" aria-label="Diagnosis group increases" hidden>
-            <div class="table-header"><h2 id="diagnosis-growth-title">Diagnosis group increases</h2><p class="helper">Compared with the previous fiscal year, ranked by Amount Insured increase.</p></div>
+          <section class="panel table-panel tab-panel" id="diagnosis-tab-panel" role="tabpanel" aria-labelledby="diagnosis-tab-button" aria-label="Diagnosis and medical provider increases" hidden>
+            <div class="table-header"><h2 id="diagnosis-growth-title">Entity increases</h2><p class="helper">Compared with the previous fiscal year. Each ranking is sorted by the corresponding total insured increase; other columns show the same entities' changes.</p></div>
             <div class="growth-grid">
-              <div><h3>Top 3 absolute increases</h3><div class="table-scroll"><table><thead><tr><th>Rank</th><th>Diagnosis group</th><th>Increase</th><th>Change</th></tr></thead><tbody id="diagnosis-absolute-rows"></tbody></table></div></div>
-              <div><h3>Top 3 percentage increases</h3><div class="table-scroll"><table><thead><tr><th>Rank</th><th>Diagnosis group</th><th>Increase</th><th>Change</th></tr></thead><tbody id="diagnosis-percent-rows"></tbody></table></div></div>
+              <div>
+                <h3>Diagnosis group</h3>
+                <h3>Top 3 by absolute insured increase</h3>
+                <div class="table-scroll"><table><thead><tr><th>Rank</th><th>Diagnosis group</th><th>Claimants Δ</th><th>Claims Δ</th><th>Admissions Δ</th><th>Total insured Δ</th><th>Avg / claim Δ</th><th>Avg / claimant Δ</th><th>Avg / admission Δ</th></tr></thead><tbody id="diagnosis-absolute-rows"></tbody></table></div>
+                <h3>Top 3 by percentage insured increase</h3>
+                <div class="table-scroll"><table><thead><tr><th>Rank</th><th>Diagnosis group</th><th>Claimants %</th><th>Claims %</th><th>Admissions %</th><th>Total insured %</th><th>Avg / claim %</th><th>Avg / claimant %</th><th>Avg / admission %</th></tr></thead><tbody id="diagnosis-percent-rows"></tbody></table></div>
+              </div>
+              <div>
+                <h3>Medical provider</h3>
+                <h3>Top 3 by absolute insured increase</h3>
+                <div class="table-scroll"><table><thead><tr><th>Rank</th><th>Medical provider</th><th>Claimants Δ</th><th>Claims Δ</th><th>Admissions Δ</th><th>Total insured Δ</th><th>Avg / claim Δ</th><th>Avg / claimant Δ</th><th>Avg / admission Δ</th></tr></thead><tbody id="provider-absolute-rows"></tbody></table></div>
+                <h3>Top 3 by percentage insured increase</h3>
+                <div class="table-scroll"><table><thead><tr><th>Rank</th><th>Medical provider</th><th>Claimants %</th><th>Claims %</th><th>Admissions %</th><th>Total insured %</th><th>Avg / claim %</th><th>Avg / claimant %</th><th>Avg / admission %</th></tr></thead><tbody id="provider-percent-rows"></tbody></table></div>
+              </div>
             </div>
           </section>
           <div class="pie-grid" aria-label="Selected fiscal year claim breakdowns">
@@ -294,6 +309,7 @@
       const ageColumn = document.getElementById("age-column");
       const diagnosisColumn = document.getElementById("diagnosis-column");
       const diagnosisGroupColumn = document.getElementById("diagnosis-group-column");
+      const providerColumn = document.getElementById("provider-column");
       const yearSelect = document.getElementById("year-select");
       const emptyState = document.getElementById("empty-state");
       const results = document.getElementById("results");
@@ -312,7 +328,7 @@
       let relationshipChart = null;
       let ageChart = null;
       let currentFiscalYears = [];
-      const dashboardFilters = { claimTypeGroup: null, relationship: null, ageGroup: null, diagnosisGroup: null, month: null };
+      const dashboardFilters = { claimTypeGroup: null, relationship: null, ageGroup: null, diagnosisGroup: null, medicalProvider: null, month: null };
       const ageGroupLabels = ["Under 20", "20-29", "30-39", "40-49", "50-59", "60+", "Unknown"];
       const pieColors = ["#167b68", "#cb684e", "#3977a8", "#c09435", "#748f62", "#886a9b", "#687878"];
 
@@ -355,6 +371,7 @@
         const ageIndex = findHeader([/^age$/i]);
         const diagnosisIndex = findHeader([/^diagnosis$/i]);
         const diagnosisGroupIndex = findHeader([/^diagnosis\s*group$/i, /diagnosis.*group/i]);
+        const providerIndex = findHeader([/^medical\s*provider$/i, /provider/i]);
         dateColumn.value = dateIndex >= 0 ? String(dateIndex) : "";
         amountColumn.value = amountIndex >= 0 ? String(amountIndex) : "";
         incurredColumn.value = incurredIndex >= 0 ? String(incurredIndex) : "";
@@ -365,6 +382,7 @@
         ageColumn.value = ageIndex >= 0 ? String(ageIndex) : "";
         diagnosisColumn.value = diagnosisIndex >= 0 ? String(diagnosisIndex) : "";
         diagnosisGroupColumn.value = diagnosisGroupIndex >= 0 ? String(diagnosisGroupIndex) : "";
+        providerColumn.value = providerIndex >= 0 ? String(providerIndex) : "";
       }
 
       function loadSheet(sheetName, selectedHeaderRowIndex = null) {
@@ -414,6 +432,7 @@
         fillSelect(ageColumn, "Choose an age field");
         fillSelect(diagnosisColumn, "Choose a diagnosis field");
         fillSelect(diagnosisGroupColumn, "Choose a diagnosis group field");
+        fillSelect(providerColumn, "Choose a provider field");
         Object.keys(dashboardFilters).forEach((key) => { dashboardFilters[key] = null; });
         detectColumns();
         mapping.hidden = false;
@@ -582,6 +601,10 @@
         if (excludedDimension !== "diagnosisGroup" && dashboardFilters.diagnosisGroup != null) {
           const diagnosisGroup = String(row[Number(diagnosisGroupColumn.value)] ?? "").trim() || "Unknown";
           if (diagnosisGroup !== dashboardFilters.diagnosisGroup) return false;
+        }
+        if (excludedDimension !== "medicalProvider" && dashboardFilters.medicalProvider != null) {
+          const provider = String(row[Number(providerColumn.value)] ?? "").trim() || "Unknown";
+          if (provider !== dashboardFilters.medicalProvider) return false;
         }
         if (excludedDimension !== "month" && dashboardFilters.month != null) {
           const monthOffset = (date.getMonth() - (startMonth - 1) + 12) % 12;
@@ -818,71 +841,123 @@
         tbody.replaceChildren(...rows);
       }
 
-      function renderDiagnosisGrowth(selectedYear, startMonth) {
-        const absoluteBody = document.getElementById("diagnosis-absolute-rows");
-        const percentBody = document.getElementById("diagnosis-percent-rows");
-        document.getElementById("diagnosis-growth-title").textContent = `Diagnosis group increases · ${formatYear(selectedYear)} vs ${formatYear(selectedYear - 1)}`;
-        if (diagnosisGroupColumn.value === "") {
+      function renderEntityGrowth(column, entityLabel, filterName, selectedYear, startMonth, absoluteBodyId, percentBodyId) {
+        const absoluteBody = document.getElementById(absoluteBodyId);
+        const percentBody = document.getElementById(percentBodyId);
+        const columnIndex = column.value === "" ? -1 : Number(column.value);
+        if (columnIndex < 0) {
           [absoluteBody, percentBody].forEach((tbody) => {
             const row = document.createElement("tr");
             const cell = document.createElement("td");
-            cell.colSpan = 4;
-            cell.textContent = "Choose a Diagnosis Group column to calculate increases.";
+            cell.colSpan = 9;
+            cell.textContent = `Choose a ${entityLabel.toLowerCase()} column to calculate increases.`;
             row.append(cell);
             tbody.replaceChildren(row);
           });
           return;
         }
-        const diagnosisGroupIndex = Number(diagnosisGroupColumn.value);
+        const claimantIndex = Number(claimantColumn.value);
         const insuredIndex = Number(amountColumn.value);
-        const totalsByGroup = new Map();
+        const typeIndex = typeColumn.value === "" ? -1 : Number(typeColumn.value);
+        const totalsByEntity = new Map();
         [selectedYear - 1, selectedYear].forEach((year, yearIndex) => {
-          rowsForYear(year, startMonth, "diagnosisGroup").forEach(({ row }) => {
-            const group = String(row[diagnosisGroupIndex] ?? "").trim() || "Unknown";
-            if (!totalsByGroup.has(group)) totalsByGroup.set(group, [0, 0]);
-            const amount = parseAmount(row[insuredIndex]);
-            if (amount != null) totalsByGroup.get(group)[yearIndex] += amount;
+          rowsForYear(year, startMonth, filterName).forEach(({ row }) => {
+            const entity = String(row[columnIndex] ?? "").trim() || "Unknown";
+            if (!totalsByEntity.has(entity)) {
+              totalsByEntity.set(entity, [
+                { claimants: new Set(), claims: 0, admissions: 0, insured: 0 },
+                { claimants: new Set(), claims: 0, admissions: 0, insured: 0 }
+              ]);
+            }
+            const totals = totalsByEntity.get(entity)[yearIndex];
+            if (isCountedClaim(row)) totals.claims += 1;
+            const claimantId = row[claimantIndex];
+            if (claimantId != null && String(claimantId).trim()) totals.claimants.add(String(claimantId).trim());
+            const insured = parseAmount(row[insuredIndex]);
+            if (insured != null) totals.insured += insured;
+            const claimType = typeIndex < 0 ? "" : String(row[typeIndex] ?? "").trim().toUpperCase();
+            if (!claimType.includes("POST") && (claimType.includes("GHS") || claimType.includes("IP"))) totals.admissions += 1;
           });
         });
-        const increases = [...totalsByGroup.entries()].map(([group, [previous, current]]) => ({
-          group,
-          previous,
-          current,
-          increase: current - previous,
-          percentage: previous ? (current - previous) / previous * 100 : null
-        })).filter((item) => item.increase > 0);
-        const absoluteLeaders = increases.slice().sort((a, b) => b.increase - a.increase || a.group.localeCompare(b.group)).slice(0, 3);
-        const percentLeaders = increases.slice().sort((a, b) => {
-          if (a.percentage == null || b.percentage == null) return a.percentage == null ? (b.percentage == null ? b.increase - a.increase : -1) : 1;
-          return b.percentage - a.percentage || b.increase - a.increase;
+        const entityChanges = [...totalsByEntity.entries()].map(([entity, [previous, current]]) => {
+          const toMetrics = (totals) => {
+            const claimantCount = totals.claimants.size;
+            return [
+              claimantCount,
+              totals.claims,
+              totals.admissions,
+              totals.insured,
+              totals.claims ? totals.insured / totals.claims : null,
+              claimantCount ? totals.insured / claimantCount : null,
+              totals.admissions ? totals.insured / totals.admissions : null
+            ];
+          };
+          const previousMetrics = toMetrics(previous);
+          const currentMetrics = toMetrics(current);
+          const changes = currentMetrics.map((value, index) => {
+            const previousValue = previousMetrics[index];
+            if (value == null && previousValue == null) return { absolute: null, percentage: null, current: null };
+            if (previousValue == null || value == null) return { absolute: null, percentage: null, current: value };
+            const absolute = value - previousValue;
+            return {
+              absolute,
+              percentage: previousValue === 0 ? (value === 0 ? 0 : null) : absolute / Math.abs(previousValue) * 100,
+              current: value
+            };
+          });
+          return { entity, insuredIncrease: changes[3].absolute ?? 0, changes };
+        }).filter((item) => item.insuredIncrease > 0);
+        const absoluteLeaders = entityChanges.slice().sort((a, b) => b.insuredIncrease - a.insuredIncrease || a.entity.localeCompare(b.entity)).slice(0, 3);
+        const percentLeaders = entityChanges.slice().sort((a, b) => {
+          const aPercentage = a.changes[3].percentage;
+          const bPercentage = b.changes[3].percentage;
+          if (aPercentage == null || bPercentage == null) return aPercentage == null ? (bPercentage == null ? b.insuredIncrease - a.insuredIncrease : -1) : 1;
+          return bPercentage - aPercentage || b.insuredIncrease - a.insuredIncrease;
         }).slice(0, 3);
-        const renderLeaders = (tbody, leaders) => {
+        const renderLeaders = (tbody, leaders, isPercentage) => {
           if (!leaders.length) {
             const row = document.createElement("tr");
             const cell = document.createElement("td");
-            cell.colSpan = 4;
-            cell.textContent = "No diagnosis groups increased from the prior year.";
+            cell.colSpan = 9;
+            cell.textContent = `No ${entityLabel.toLowerCase()} increases from the prior fiscal year.`;
             row.append(cell);
             tbody.replaceChildren(row);
             return;
           }
           tbody.replaceChildren(...leaders.map((item, index) => {
             const row = document.createElement("tr");
-            row.dataset.diagnosisGroup = item.group;
+            row.dataset[filterName] = item.entity;
             row.classList.add("interactive-row");
-            row.classList.toggle("selected-filter-row", dashboardFilters.diagnosisGroup === item.group);
-            row.title = "Select this diagnosis group to filter the dashboard";
-            [String(index + 1), item.group, formatAmount(item.increase), item.percentage == null ? "New" : `${formatAmount(item.percentage)}%`].forEach((value) => {
+            row.classList.toggle("selected-filter-row", dashboardFilters[filterName] === item.entity);
+            row.title = `Select this ${entityLabel.toLowerCase()} to filter the dashboard`;
+            const values = [String(index + 1), item.entity, ...item.changes.map((change) => {
+              if (isPercentage) return change.percentage == null ? (change.current == null ? "—" : "New") : `${change.percentage > 0 ? "+" : ""}${formatAmount(change.percentage)}%`;
+              if (change.absolute == null) return change.current == null ? "—" : "New";
+              return `${change.absolute > 0 ? "+" : ""}${formatAmount(change.absolute)}`;
+            })];
+            values.forEach((value, valueIndex) => {
               const cell = document.createElement("td");
               cell.textContent = value;
-              if (value === item.group) cell.classList.add("diagnosis-group-column");
+              if (valueIndex === 1) cell.classList.add("diagnosis-group-column");
+              const change = item.changes[valueIndex - 2];
+              if (change) {
+                const direction = isPercentage ? change.percentage : change.absolute;
+                if (direction > 0) cell.classList.add("year-change-up");
+                if (direction < 0) cell.classList.add("year-change-down");
+              }
               row.append(cell);
             });
             return row;
           }));
         };
-        renderLeaders(absoluteBody, absoluteLeaders);
-        renderLeaders(percentBody, percentLeaders);
+        renderLeaders(absoluteBody, absoluteLeaders, false);
+        renderLeaders(percentBody, percentLeaders, true);
+      }
+
+      function renderDiagnosisGrowth(selectedYear, startMonth) {
+        document.getElementById("diagnosis-growth-title").textContent = `Entity increases · ${formatYear(selectedYear)} vs ${formatYear(selectedYear - 1)}`;
+        renderEntityGrowth(diagnosisGroupColumn, "Diagnosis group", "diagnosisGroup", selectedYear, startMonth, "diagnosis-absolute-rows", "diagnosis-percent-rows");
+        renderEntityGrowth(providerColumn, "Medical provider", "medicalProvider", selectedYear, startMonth, "provider-absolute-rows", "provider-percent-rows");
       }
 
       function renderFilterBar() {
@@ -892,6 +967,7 @@
         if (dashboardFilters.relationship != null) labels.push(`Relationship: ${dashboardFilters.relationship}`);
         if (dashboardFilters.ageGroup != null) labels.push(`Age: ${dashboardFilters.ageGroup}`);
         if (dashboardFilters.diagnosisGroup != null) labels.push(`Diagnosis group: ${dashboardFilters.diagnosisGroup}`);
+        if (dashboardFilters.medicalProvider != null) labels.push(`Provider: ${dashboardFilters.medicalProvider}`);
         if (dashboardFilters.month != null) labels.push(`Month: ${monthNames[(Number(fiscalMonth.value) - 1 + dashboardFilters.month) % 12]}`);
         filterBar.hidden = labels.length === 0;
         filterSummary.textContent = labels.length ? `Filtered by ${labels.join(" · ")}` : "";
@@ -1144,7 +1220,7 @@
       }
 
       fileInput.addEventListener("change", (event) => readWorkbook(event.target.files[0]));
-      [fiscalMonth, dateColumn, amountColumn, incurredColumn, claimantColumn, typeColumn, statusColumn, relationshipColumn, ageColumn, diagnosisColumn, diagnosisGroupColumn].forEach((select) => select.addEventListener("change", updateDashboard));
+      [fiscalMonth, dateColumn, amountColumn, incurredColumn, claimantColumn, typeColumn, statusColumn, relationshipColumn, ageColumn, diagnosisColumn, diagnosisGroupColumn, providerColumn].forEach((select) => select.addEventListener("change", updateDashboard));
       sheetSelect.addEventListener("change", () => loadSheet(sheetSelect.value));
       headerRow.addEventListener("change", () => loadSheet(sheetSelect.value, Number(headerRow.value) - 1));
       yearSelect.addEventListener("change", updateDashboard);
@@ -1168,12 +1244,16 @@
         const row = event.target.closest("tr[data-month]");
         if (row) toggleDashboardFilter("month", Number(row.dataset.month));
       });
-      ["diagnosis-absolute-rows", "diagnosis-percent-rows"].forEach((id) => {
+      function addEntityFilterHandler(id, attribute, filterName) {
         document.getElementById(id).addEventListener("click", (event) => {
-          const row = event.target.closest("tr[data-diagnosis-group]");
-          if (row) toggleDashboardFilter("diagnosisGroup", row.dataset.diagnosisGroup);
+          const row = event.target.closest(`tr[data-${attribute}]`);
+          if (row) toggleDashboardFilter(filterName, row.dataset[filterName]);
         });
-      });
+      }
+      addEntityFilterHandler("diagnosis-absolute-rows", "diagnosis-group", "diagnosisGroup");
+      addEntityFilterHandler("diagnosis-percent-rows", "diagnosis-group", "diagnosisGroup");
+      addEntityFilterHandler("provider-absolute-rows", "medical-provider", "medicalProvider");
+      addEntityFilterHandler("provider-percent-rows", "medical-provider", "medicalProvider");
       dropzone.addEventListener("dragover", (event) => { event.preventDefault(); dropzone.classList.add("dragover"); });
       dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
       dropzone.addEventListener("drop", (event) => {
